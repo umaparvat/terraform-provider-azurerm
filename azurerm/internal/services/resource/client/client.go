@@ -14,6 +14,7 @@ type Client struct {
 	LocksClient                 *locks.ManagementLocksClient
 	ProvidersClient             *providers.ProvidersClient
 	ResourcesClient             *resources.Client
+	TagsClient                  *resources.TagsClient
 	TemplateSpecsVersionsClient *templatespecs.VersionsClient
 }
 

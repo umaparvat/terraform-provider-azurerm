@@ -126,6 +126,7 @@ func resourceSubscriptionCreate(d *schema.ResourceData, meta interface{}) error 
 	aliasClient := meta.(*clients.Client).Subscription.AliasClient
 	subscriptionClient := meta.(*clients.Client).Subscription.SubscriptionClient
 	client := meta.(*clients.Client).Subscription.Client
+	tagsClient := meta.(*clients.Client).Resource.TagsClient
 	ctx, cancel := timeouts.ForCreate(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -136,7 +137,6 @@ func resourceSubscriptionCreate(d *schema.ResourceData, meta interface{}) error 
 		aliasName = uuid.New().String()
 		d.Set("alias", aliasName)
 	}
-
 	id := parse.NewSubscriptionAliasId(aliasName)
 
 	existing, err := aliasClient.Get(ctx, id.Name)
@@ -230,6 +230,33 @@ func resourceSubscriptionCreate(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	d.SetId(id.ID())
+
+	// create or update tag values in subscription
+	//tags := make(map[string]string)
+	if tagsMap, ok := d.GetOk("tags"); ok {
+		tags, ok := tagsMap.(map[string]interface{})
+		if ok {
+			for tagName, tagValue := range tags {
+				value := tagValue.(string)
+				existingtags, err := tagsClient.CreateOrUpdate(ctx, tagName)
+				if err != nil {
+					if !utils.ResponseWasNotFound(existingtags.Response) {
+						return fmt.Errorf("checking for existence of tags by tagName %q: %+v", tagName, err)
+					}
+				}
+				existingtagsval, err := tagsClient.CreateOrUpdateValue(ctx, tagName, value)
+				if err != nil {
+					if !utils.ResponseWasNotFound(existingtagsval.Response) {
+						return fmt.Errorf("Adding tag value %q for tags by tagName %q: %+v", value, tagName, err)
+					}
+				}
+
+			}
+
+
+		}
+		
+	}	
 
 	return resourceSubscriptionRead(d, meta)
 }
