@@ -38,12 +38,16 @@ func NewClient(o *common.ClientOptions) *Client {
 	templatespecsVersionsClient := templatespecs.NewVersionsClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
 	o.ConfigureClient(&templatespecsVersionsClient.Client, o.ResourceManagerAuthorizer)
 
+	tagsClient := resources.NewTagsClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
+	o.ConfigureClient(&tagsClient.Client, o.ResourceManagerAuthorizer)
+
 	return &Client{
 		GroupsClient:                &groupsClient,
 		DeploymentsClient:           &deploymentsClient,
 		LocksClient:                 &locksClient,
 		ProvidersClient:             &providersClient,
 		ResourcesClient:             &resourcesClient,
+		TagsClient:                  &tagsClient,
 		TemplateSpecsVersionsClient: &templatespecsVersionsClient,
 	}
 }

@@ -234,9 +234,9 @@ func resourceSubscriptionCreate(d *schema.ResourceData, meta interface{}) error 
 	// create or update tag values in subscription
 	//tags := make(map[string]string)
 	if tagsMap, ok := d.GetOk("tags"); ok {
-		tags, ok := tagsMap.(map[string]interface{})
+		tags_details, ok := tagsMap.(map[string]interface{})
 		if ok {
-			for tagName, tagValue := range tags {
+			for tagName, tagValue := range tags_details {
 				value := tagValue.(string)
 				existingtags, err := tagsClient.CreateOrUpdate(ctx, tagName)
 				if err != nil {
