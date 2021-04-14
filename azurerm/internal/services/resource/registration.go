@@ -40,6 +40,7 @@ func (r Registration) SupportedResources() map[string]*schema.Resource {
 		"azurerm_subscription_template_deployment":     subscriptionTemplateDeploymentResource(),
 		"azurerm_template_deployment":                  resourceTemplateDeployment(),
 		"azurerm_tenant_template_deployment":           tenantTemplateDeploymentResource(),
+		"azurerm_subscription_tags":                    resourceSubscriptionTag(),
 	}
 }
 

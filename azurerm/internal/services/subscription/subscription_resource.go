@@ -22,6 +22,7 @@ import (
 	azSchema "github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/tf/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/timeouts"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
 )
 
 var SubscriptionResourceName = "azurerm_subscription"
@@ -236,21 +237,18 @@ func resourceSubscriptionCreate(d *schema.ResourceData, meta interface{}) error 
 	if tagsMap, ok := d.GetOk("tags"); ok {
 		tags_details, ok := tagsMap.(map[string]interface{})
 		if ok {
-			for tagName, tagValue := range tags_details {
-				value := tagValue.(string)
-				existingtags, err := tagsClient.CreateOrUpdate(ctx, tagName)
-				if err != nil {
-					if !utils.ResponseWasNotFound(existingtags.Response) {
-						return fmt.Errorf("checking for existence of tags by tagName %q: %+v", tagName, err)
-					}
+			resource_tags := resources.Tags{
+				Tags: tags.Expand(tags_details),
+			}
+			locks.ByID(subscriptionId)
+			defer locks.UnlockByID(subscriptionId)
+			tagParamters := resources.TagsPatchResource{ Operation: "Merge", Properties: &resource_tags}
+			uptags, urerr := tagsClient.UpdateAtScope(context.Background(), "subscriptions/"+subscriptionId, tagParamters)
+			if urerr != nil {
+				if !utils.ResponseWasNotFound(uptags.Response) {
+					return fmt.Errorf("Adding tag value %q for subscription %q: %+v", tags.Flatten(resource_tags.Tags), subscriptionId, urerr)
 				}
-				existingtagsval, err := tagsClient.CreateOrUpdateValue(ctx, tagName, value)
-				if err != nil {
-					if !utils.ResponseWasNotFound(existingtagsval.Response) {
-						return fmt.Errorf("Adding tag value %q for tags by tagName %q: %+v", value, tagName, err)
-					}
-				}
-
+				
 			}
 
 
@@ -264,6 +262,7 @@ func resourceSubscriptionCreate(d *schema.ResourceData, meta interface{}) error 
 func resourceSubscriptionUpdate(d *schema.ResourceData, meta interface{}) error {
 	aliasClient := meta.(*clients.Client).Subscription.AliasClient
 	subscriptionClient := meta.(*clients.Client).Subscription.SubscriptionClient
+	tagsClient := meta.(*clients.Client).Resource.TagsClient
 	ctx, cancel := timeouts.ForUpdate(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -294,6 +293,27 @@ func resourceSubscriptionUpdate(d *schema.ResourceData, meta interface{}) error 
 		if _, err := subscriptionClient.Rename(ctx, *subscriptionId, displayName); err != nil {
 			return fmt.Errorf("could not update Display Name of Subscription %q: %+v", *subscriptionId, err)
 		}
+	}
+	if tagsMap, ok := d.GetOk("tags"); ok {
+		tags_details, ok := tagsMap.(map[string]interface{})
+		if ok {
+			resource_tags := resources.Tags{
+				Tags: tags.Expand(tags_details),
+			}
+			locks.ByID(*subscriptionId)
+			defer locks.UnlockByID(*subscriptionId)
+			tagParamters := resources.TagsPatchResource{ Operation: "Merge", Properties: &resource_tags}
+			uptags, urerr := tagsClient.UpdateAtScope(context.Background(), "subscriptions/"+*subscriptionId, tagParamters)
+			if urerr != nil {
+				if !utils.ResponseWasNotFound(uptags.Response) {
+					return fmt.Errorf("Adding tag value %q for subscription %q: %+v", tags.Flatten(resource_tags.Tags), *subscriptionId, urerr)
+				}
+				
+			}
+
+
+		}
+		
 	}
 
 	return nil
@@ -366,6 +386,7 @@ func resourceSubscriptionDelete(d *schema.ResourceData, meta interface{}) error 
 	aliasClient := meta.(*clients.Client).Subscription.AliasClient
 	subscriptionClient := meta.(*clients.Client).Subscription.SubscriptionClient
 	client := meta.(*clients.Client).Subscription.Client
+	tagsClient := meta.(*clients.Client).Resource.TagsClient
 	ctx, cancel := timeouts.ForDelete(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -408,7 +429,24 @@ func resourceSubscriptionDelete(d *schema.ResourceData, meta interface{}) error 
 			return fmt.Errorf("multiple Aliases found for Subscription %q, cannot remove", subscriptionId)
 		}
 	}
+	// remove the tags
+	if tagsMap, ok := d.GetOk("tags"); ok {
+		t, ok := tagsMap.(map[string]interface{})
+		if ok {
+			resource_tags := resources.Tags{
+				Tags: tags.Expand(t),
+			}
+			locks.ByID(subscriptionId)
+			defer locks.UnlockByID(subscriptionId)
+			tagPatchParamter := resources.TagsPatchResource{ Operation: "Delete", Properties: &resource_tags}
+			_, delerr := tagsClient.UpdateAtScope(context.Background(), "subscriptions/"+subscriptionId, tagPatchParamter)
+			if delerr != nil {
+				return fmt.Errorf("Failed to Remove tags %q from subscription %q: %+v", tags.Flatten(resource_tags.Tags), subscriptionId, delerr)
 
+			}
+		}
+	}
+	
 	resp, err := aliasClient.Delete(ctx, id.Name)
 	if err != nil {
 		if !utils.ResponseWasNotFound(resp) {
