@@ -24,15 +24,15 @@ func TestSubscriptionTags_basic(t *testing.T) {
 		t.Skip("skipping tests - no subscription ID data provided")
 	}
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
-	testSubscriptionTags := SubscriptionTags{}
-	data.ResourceTest(t, testSubscriptionTags, []resource.TestStep{
+	r := SubscriptionTags{}
+	data.ResourceTest(t, r, []resource.TestStep{
 		{
-			Config: testSubscriptionTags.basicConfig(data),
+			Config: r.basicConfig(data),
 			Check: resource.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(testSubscriptionTags),
+				check.That(data.ResourceName).ExistsInAzure(r),
 			),
 		},
-		data.ImportStep(),
+		data.ImportStep("subscription_id"),
 	})
 }
 
@@ -41,43 +41,43 @@ func TestSubscriptionTags_requiresImport(t *testing.T) {
 		t.Skip("skipping tests - no subscription ID data provided")
 	}
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
-	testSubscriptionTags := SubscriptionTags{}
-	data.ResourceTest(t, testSubscriptionTags, []resource.TestStep{
+	r := SubscriptionTags{}
+	data.ResourceTest(t, r, []resource.TestStep{
 		{
-			Config: testSubscriptionTags.basicConfig(data),
+			Config: r.basicConfig(data),
 			Check: resource.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(testSubscriptionTags),
+				check.That(data.ResourceName).ExistsInAzure(r),
 			),
 		},
-		data.RequiresImportErrorStep(testSubscriptionTags.requiresImportConfig),
+		data.RequiresImportErrorStep(r.requiresImportConfig),
 	})
 }
 
-func TestSubscriptionTags_withTags(t *testing.T) {
+func testSubscriptionTags_updateWithTags(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
 
-	testSubscriptionTags := SubscriptionTags{}
+	r := SubscriptionTags{}
 	assert := check.That(data.ResourceName)
-	data.ResourceTest(t, testSubscriptionTags, []resource.TestStep{
+	data.ResourceTest(t, r, []resource.TestStep{
 		{
-			Config: testSubscriptionTags.basicConfig(data),
+			Config: r.basicConfig(data),
 			Check: resource.ComposeTestCheckFunc(
-				assert.ExistsInAzure(testSubscriptionTags),
+				assert.ExistsInAzure(r),
 				assert.Key("tags.%").HasValue("2"),
 				assert.Key("tags.cost_center").HasValue("MSFT"),
 				assert.Key("tags.environment").HasValue("Production"),
 			),
 		},
-		data.ImportStep(),
+		data.ImportStep("subscription_id"),
 		{
-			Config: testSubscriptionTags.withTagsUpdatedConfig(data),
+			Config: r.withTagsUpdatedConfig(data),
 			Check: resource.ComposeTestCheckFunc(
-				assert.ExistsInAzure(testSubscriptionTags),
+				assert.ExistsInAzure(r),
 				assert.Key("tags.%").HasValue("1"),
 				assert.Key("tags.environment").HasValue("staging"),
 			),
 		},
-		data.ImportStep(),
+		data.ImportStep("subscription_id"),
 	})
 }
 
@@ -108,7 +108,8 @@ func TestSubscriptionTags_withTags(t *testing.T) {
 
 func (t SubscriptionTags) Exists(ctx context.Context, client *clients.Client, state *terraform.InstanceState) (*bool, error) {
 	subscriptionId := state.Attributes["subscription_id"]
-	fmt.Println("subscription id", subscriptionId, state.Attributes["tags"], "\n ")
+	atags := state.Attributes["tags"]
+	fmt.Println("subscription id", subscriptionId, "tags", atags, "\n ")
 	resp, err := client.Resource.TagsClient.GetAtScope(ctx, "subscriptions/"+subscriptionId)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving tags from subscription %q: %+v", subscriptionId, err)

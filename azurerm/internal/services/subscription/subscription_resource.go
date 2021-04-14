@@ -115,6 +115,7 @@ func resourceSubscription() *schema.Resource {
 			"tags": {
 				Type:     schema.TypeMap,
 				Computed: true,
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
