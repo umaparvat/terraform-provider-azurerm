@@ -62,9 +62,6 @@ func TestAccSubscriptionResourceTag_requiresTagImport(t *testing.T) {
 }
 
 func TestAccSubscriptionResourceTag_update(t *testing.T) {
-	if os.Getenv("ARM_BILLING_ACCOUNT") == "" {
-		t.Skip("skipping tests - no billing account data provided")
-	}
 	data := acceptance.BuildTestData(t, "azurerm_subscription", "test")
 	r := SubscriptionResourceTag{}
 
