@@ -12,7 +12,7 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/acceptance/check"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/clients"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
-	//"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
+	// "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-06-01/resources"
 	//"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/tags"
 )
 
@@ -32,7 +32,7 @@ func TestSubscriptionTags_basic(t *testing.T) {
 				check.That(data.ResourceName).ExistsInAzure(r),
 			),
 		},
-		data.ImportStep("subscription_id"),
+		data.ImportStep(),
 	})
 }
 
@@ -49,11 +49,13 @@ func TestSubscriptionTags_requiresImport(t *testing.T) {
 				check.That(data.ResourceName).ExistsInAzure(r),
 			),
 		},
-		data.RequiresImportErrorStep(r.requiresImportConfig),
+		data.RequiresImportErrorStep(func(data acceptance.TestData) string {
+			return r.requiresImportConfig(data)
+		}),
 	})
 }
 
-func testSubscriptionTags_updateWithTags(t *testing.T) {
+func TestSubscriptionTags_updateWithTags(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
 
 	r := SubscriptionTags{}
@@ -68,7 +70,7 @@ func testSubscriptionTags_updateWithTags(t *testing.T) {
 				assert.Key("tags.environment").HasValue("Production"),
 			),
 		},
-		data.ImportStep("subscription_id"),
+		data.ImportStep(),
 		{
 			Config: r.withTagsUpdatedConfig(data),
 			Check: resource.ComposeTestCheckFunc(
@@ -77,19 +79,15 @@ func testSubscriptionTags_updateWithTags(t *testing.T) {
 				assert.Key("tags.environment").HasValue("staging"),
 			),
 		},
-		data.ImportStep("subscription_id"),
+		data.ImportStep(),
 	})
 }
 
 // func (t SubscriptionTags) Destroy(ctx context.Context, client *clients.Client, state *terraform.InstanceState) (*bool, error) {
 // 	subscriptionId := state.Attributes["subscription_id"]
-// 	value1 := "staging"
-// 	value2 := "MSFT"
-// 	sub_tags := make(map[string]interface{})
-// 	sub_tags["environment"] = &value1
-// 	sub_tags["cost_center"] = &value2
+// 	atags := state.Attributes["tags"]
 // 	resource_tags := resources.Tags{
-// 		Tags: tags.Expand(sub_tags),
+// 		Tags: tags.Expand(atags),
 // 	}
 // 	parameters := resources.TagsPatchResource{Operation: "Delete", Properties: &resource_tags}
 
@@ -109,6 +107,7 @@ func testSubscriptionTags_updateWithTags(t *testing.T) {
 func (t SubscriptionTags) Exists(ctx context.Context, client *clients.Client, state *terraform.InstanceState) (*bool, error) {
 	subscriptionId := state.Attributes["subscription_id"]
 	atags := state.Attributes["tags"]
+	fmt.Printf("tags: %T\n %s\n", atags, atags)
 	fmt.Println("subscription id", subscriptionId, "tags", atags, "\n ")
 	resp, err := client.Resource.TagsClient.GetAtScope(ctx, "subscriptions/"+subscriptionId)
 	if err != nil {
@@ -119,7 +118,7 @@ func (t SubscriptionTags) Exists(ctx context.Context, client *clients.Client, st
 }
 
 func (t SubscriptionTags) basicConfig(data acceptance.TestData) string {
-	subscriptionID := os.Getenv("ARM_SUBSCRIPTION_ID")
+	subscriptionId := os.Getenv("ARM_SUBSCRIPTION_ID")
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
@@ -132,23 +131,26 @@ resource "azurerm_subscription_tags" "test" {
     cost_center = "MSFT"
   }
 }
-`, subscriptionID)
+`, subscriptionId)
 }
 
 func (t SubscriptionTags) requiresImportConfig(data acceptance.TestData) string {
-	template := t.basicConfig(data)
+
 	return fmt.Sprintf(`
 %s
 
 resource "azurerm_subscription_tags" "import" {
   subscription_id     = azurerm_subscription_tags.test.subscription_id
-  tags = azurerm_subscription_tags.test.tags
+  tags = {
+    environment = "Production"
+    cost_center = "MSFT"
+  }
 }
-`, template)
+`, t.basicConfig(data))
 }
 
 func (t SubscriptionTags) withTagsUpdatedConfig(data acceptance.TestData) string {
-	subscriptionID := os.Getenv("ARM_SUBSCRIPTION_ID")
+	subscriptionId := os.Getenv("ARM_SUBSCRIPTION_ID")
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
@@ -161,5 +163,5 @@ resource "azurerm_subscription_tags" "test" {
     environment = "staging"
   }
 }
-`, subscriptionID)
+`, subscriptionId)
 }
