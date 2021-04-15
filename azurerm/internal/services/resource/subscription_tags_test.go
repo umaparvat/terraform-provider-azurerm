@@ -19,43 +19,44 @@ import (
 type SubscriptionTags struct {
 }
 
-func TestSubscriptionTags_basic(t *testing.T) {
+func TestSubscriptionTag_basic(t *testing.T) {
 	if os.Getenv("ARM_SUBSCRIPTION_ID") == "" {
 		t.Skip("skipping tests - no subscription ID data provided")
 	}
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
 	r := SubscriptionTags{}
+
 	data.ResourceTest(t, r, []resource.TestStep{
 		{
 			Config: r.basicConfig(data),
 			Check: resource.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-			),
+				check.That(data.ResourceName).ExistsInAzure(r)),
 		},
 		data.ImportStep(),
 	})
 }
 
-func TestSubscriptionTags_requiresImport(t *testing.T) {
+func TestSubscriptionTag_requiresTagImport(t *testing.T) {
 	if os.Getenv("ARM_SUBSCRIPTION_ID") == "" {
 		t.Skip("skipping tests - no subscription ID data provided")
 	}
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
 	r := SubscriptionTags{}
+
 	data.ResourceTest(t, r, []resource.TestStep{
 		{
 			Config: r.basicConfig(data),
 			Check: resource.ComposeTestCheckFunc(
-				check.That(data.ResourceName).ExistsInAzure(r),
-			),
+				check.That(data.ResourceName).ExistsInAzure(r)),
 		},
-		data.RequiresImportErrorStep(func(data acceptance.TestData) string {
-			return r.requiresImportConfig(data)
-		}),
+		data.RequiresImportErrorStep(r.requiresImportConfig),
 	})
 }
 
 func TestSubscriptionTags_updateWithTags(t *testing.T) {
+	if os.Getenv("ARM_SUBSCRIPTION_ID") == "" {
+		t.Skip("skipping tests - no subscription ID data provided")
+	}
 	data := acceptance.BuildTestData(t, "azurerm_subscription_tags", "test")
 
 	r := SubscriptionTags{}
@@ -134,19 +135,15 @@ resource "azurerm_subscription_tags" "test" {
 `, subscriptionId)
 }
 
-func (t SubscriptionTags) requiresImportConfig(data acceptance.TestData) string {
-
+func (r SubscriptionTags) requiresImportConfig(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 %s
 
 resource "azurerm_subscription_tags" "import" {
-  subscription_id     = azurerm_subscription_tags.test.subscription_id
-  tags = {
-    environment = "Production"
-    cost_center = "MSFT"
-  }
+  subscription_id = azurerm_subscription_tags.test.subscription_id
+  tags = azurerm_subscription_tags.test.tags
 }
-`, t.basicConfig(data))
+`, r.basicConfig(data))
 }
 
 func (t SubscriptionTags) withTagsUpdatedConfig(data acceptance.TestData) string {
